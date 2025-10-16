@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { Orchestrator } from '$lib/orchestrators/ExampleJoySadOrchestrator.js';
+import { BalancedSynthesizerOrchestrator } from '$lib/orchestrators/BalancedSynthesizerOrchestrator.js';
+import { ProgressiveBuilderOrchestrator } from '$lib/orchestrators/ProgressiveBuilderOrchestrator.js';
 
 /**
  * Handle chat POST requests for a single-turn pipeline execution.
@@ -9,19 +10,40 @@ import { Orchestrator } from '$lib/orchestrators/ExampleJoySadOrchestrator.js';
  */
 export async function POST({ request }) {
   const body = await request.json();
-  const { history } = body || {};
+  const { history, orchestratorType = 'progressive' } = body || {};
 
   if (!Array.isArray(history)) {
     return json({ error: 'history array is required' }, { status: 400 });
   }
 
   try {
-    const orchestrator = new Orchestrator();
+    // Choose orchestrator based on type parameter
+    let orchestrator;
+    switch (orchestratorType) {
+      case 'balanced':
+        orchestrator = new BalancedSynthesizerOrchestrator();
+        break;
+      case 'progressive':
+      default:
+        orchestrator = new ProgressiveBuilderOrchestrator();
+        break;
+    }
+    
     const contents = history.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] }));
     
-    const { assistantMessage, frameSet, agent, reasons } = await orchestrator.orchestrate(contents);
+    const { assistantMessage, frameSet, agent, reasons, individualResponses } = await orchestrator.orchestrate(contents);
     
-    return json({ assistantMessage, replierInput: { frameSet, contextCount: history.length, agent, reasons } });
+    return json({ 
+      assistantMessage, 
+      replierInput: { 
+        frameSet, 
+        contextCount: history.length, 
+        agent, 
+        reasons,
+        orchestratorType,
+        individualResponses // Only present for balanced synthesizer
+      } 
+    });
   } catch (err) {
     const msg = String(err?.message || err || '').toLowerCase();
     if (msg.includes('gemini_api_key') || msg.includes('gemini') || msg.includes('api key')) {

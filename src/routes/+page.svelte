@@ -4,9 +4,10 @@
   let input = '';
   let messages = [];
   let debugOpen = false;
-  let replierInput = null; // { frameSet, contextCount, agent, reasons }
+  let replierInput = null; // { frameSet, contextCount, agent, reasons, orchestratorType }
   let isLoading = false;
   let errorMsg = '';
+  let orchestratorType = 'progressive'; // 'progressive' or 'balanced'
   
 
   onMount(() => {});
@@ -21,7 +22,7 @@
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ history: messages })
+      body: JSON.stringify({ history: messages, orchestratorType })
     });
     const data = await res.json();
     if (!res.ok || data?.error) {
@@ -87,6 +88,8 @@
   .meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.15rem; }
 
   .toolbar { display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin: 0.75rem 0; }
+  .orchestrator-selector { display: flex; align-items: center; gap: 0.5rem; }
+  .orchestrator-selector label { font-weight: 500; color: var(--text); }
 
   input[type="text"] {
     padding: 0.6rem 0.7rem; border-radius: 10px; border: 1px solid var(--border); background: var(--card);
@@ -125,9 +128,16 @@
 </style>
 
 <div class="container">
-  <h1>A3: Multi-agent Interaction </h1>
-  <div class="subtle">Conversational demo</div>
+  <h1>A3: Comedy Writing Multi-Agent Assistant</h1>
+  <div class="subtle">Get help writing jokes from three different perspectives!</div>
   <div class="toolbar" style="margin: 0.5rem 0 0.75rem 0;">
+    <div class="orchestrator-selector">
+      <label for="orchestrator">Mode:</label>
+      <select id="orchestrator" bind:value={orchestratorType} style="margin-left: 0.5rem; padding: 0.3rem; border-radius: 4px; border: 1px solid var(--border);">
+        <option value="progressive">Progressive Builder (Router)</option>
+        <option value="balanced">Balanced Synthesizer</option>
+      </select>
+    </div>
     <button class="secondary" on:click={() => (debugOpen = !debugOpen)}>{debugOpen ? 'Hide' : 'Show'} Debug</button>
   </div>
 
@@ -174,8 +184,19 @@
     {#if replierInput}
       <div style="margin-top: 0.5rem;">
         <div><strong>Context Count:</strong> {replierInput.contextCount}</div>
+        <div><strong>Orchestrator:</strong> {replierInput.orchestratorType || 'n/a'}</div>
         <div><strong>Agent:</strong> {replierInput.agent || 'n/a'}</div>
         <div><strong>Reason:</strong> {replierInput.reasons || 'n/a'}</div>
+        {#if replierInput.individualResponses}
+          <div style="margin-top: 0.5rem;">
+            <div><strong>Individual Agent Responses:</strong></div>
+            {#each Object.entries(replierInput.individualResponses) as [agentName, response]}
+              <div style="margin-left: 1rem; margin-top: 0.25rem;">
+                <div><strong>{agentName}:</strong> {response}</div>
+              </div>
+            {/each}
+          </div>
+        {/if}
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.35rem;">
           {#each Object.entries(replierInput.frameSet?.frames || {}) as [name, p]}
             <div><strong>{name}</strong>: {p?.value}</div>
